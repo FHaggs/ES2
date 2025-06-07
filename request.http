@@ -1,0 +1,23 @@
+POST http://localhost:8082/api/etl/start
+
+####
+POST http://localhost:8082/api/etl/load/13  
+
+###
+GET http://localhost:8081/api/countries
+
+###
+POST http://localhost:8081/api/countries
+Content-Type: application/json
+
+{
+  "name": "argentina2",
+  "code": "arg",
+  "region": "Americas",
+  "subregion": "South America",
+  "capital": "Buenos Aires",
+  "population": 93490988
+}
+
+###
+DELETE  http://localhost:8081/api/countries/251

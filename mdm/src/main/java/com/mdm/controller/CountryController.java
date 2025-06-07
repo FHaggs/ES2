@@ -38,11 +38,13 @@ public class CountryController {
         return ResponseEntity.ok(countryService.create(dto));
     }
 
-    @PostMapping("/batch")
-    @Operation(summary = "Criar países em lote")
-    public ResponseEntity<List<CountryDTO>> createBatch(@Valid @RequestBody List<CountryDTO> dtos) {
-        List<CountryDTO> created = dtos.stream().map(countryService::create).toList();
-        return ResponseEntity.ok(created);
+    @PostMapping("/upsert/batch")
+    @Operation(summary = "Criar ou atualizar países em lote (upsert)")
+    public ResponseEntity<List<CountryDTO>> upsertBatch(@Valid @RequestBody List<CountryDTO> dtos) {
+        List<CountryDTO> result = dtos.stream()
+            .map(countryService::upsert)
+            .toList();
+        return ResponseEntity.ok(result);
     }
 
     @PutMapping("/{id}")

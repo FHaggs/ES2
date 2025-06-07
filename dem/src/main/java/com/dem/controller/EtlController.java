@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/etl")
 @Tag(name = "ETL", description = "Gestão de operações de Extração, Transformação e Carga")
 public class EtlController {
-    @Autowired
+  @Autowired
     private EtlService etlService;
 
     @PostMapping("/start")
