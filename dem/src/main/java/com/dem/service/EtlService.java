@@ -9,6 +9,8 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -20,10 +22,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class EtlService {
-    @Value("https://restcountries.com/v3.1/all")
-    private String restCountriesUrl;
-
-    @Autowired
+     @Autowired
     private EtlTransactionRepository etlTransactionRepository;
     @Autowired
     private TransformedCountryRepository transformedCountryRepository;
@@ -63,10 +62,11 @@ public class EtlService {
         List<TransformedCountry> countries = transformedCountryRepository.findByEtlTransaction(tx);
         List<Map<String, Object>> payload = countries.stream().map(this::toMdmPayload).collect(Collectors.toList());
         try {
-            mdmClient.createCountries(payload);
+            mdmClient.createOrUpdateCountries(payload);
             tx.setStatus(EtlTransaction.Status.LOADED);
             tx.setFinishedAt(LocalDateTime.now());
             etlTransactionRepository.save(tx);
+
         } catch (Exception e) {
             tx.setStatus(EtlTransaction.Status.FAILED);
             tx.setErrorMessage(e.getMessage());
@@ -81,18 +81,49 @@ public class EtlService {
 
     private List<Map<String, Object>> fetchCountries() {
         RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<List> response = restTemplate.getForEntity(restCountriesUrl, List.class);
+        ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+            "https://restcountries.com/v3.1/all?fields=name,cca2,region,subregion,capital,population",
+            HttpMethod.GET,
+            null,
+            new ParameterizedTypeReference<List<Map<String, Object>>>() {}
+        );
         return response.getBody();
     }
 
     private TransformedCountry transformCountry(Map<String, Object> raw, EtlTransaction tx) {
         // Normalização básica dos campos
-        String name = Optional.ofNullable(raw.get("name")).map(n -> ((Map)n).get("common")).map(Object::toString).orElse("");
-        String code = Optional.ofNullable(raw.get("cca2")).map(Object::toString).orElse("");
-        String region = Optional.ofNullable(raw.get("region")).map(Object::toString).orElse("");
-        String subregion = Optional.ofNullable(raw.get("subregion")).map(Object::toString).orElse("");
-        String capital = Optional.ofNullable(raw.get("capital")).filter(List.class::isInstance).map(List.class::cast).filter(l -> !l.isEmpty()).map(l -> l.get(0).toString()).orElse("");
-        Long population = Optional.ofNullable(raw.get("population")).map(o -> ((Number)o).longValue()).orElse(0L);
+         String name = Optional.ofNullable(raw.get("name"))
+            .map(n -> ((Map) n).get("common"))
+            .map(Object::toString)
+            .map(String::trim)
+            .map(String::toUpperCase)
+            .orElse("");
+
+        String code = Optional.ofNullable(raw.get("cca2"))
+                .map(Object::toString)
+                .map(String::trim)
+                .map(String::toUpperCase)
+                .orElse("");
+
+        String region = Optional.ofNullable(raw.get("region"))
+                .map(Object::toString)
+                .orElse("");
+
+        String subregion = Optional.ofNullable(raw.get("subregion"))
+                .map(Object::toString)
+                .orElse("");
+
+        String capital = Optional.ofNullable(raw.get("capital"))
+                .filter(List.class::isInstance)
+                .map(List.class::cast)
+                .filter(l -> !l.isEmpty())
+                .map(l -> l.get(0).toString())
+                .orElse("");
+
+        Long population = Optional.ofNullable(raw.get("population"))
+                .map(o -> ((Number) o).longValue())
+                .orElse(0L);
+
         return TransformedCountry.builder()
                 .name(name)
                 .code(code)

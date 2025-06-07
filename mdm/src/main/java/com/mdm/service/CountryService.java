@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class CountryService {
-    @Autowired
+     @Autowired
     private CountryRepository countryRepository;
 
     public List<CountryDTO> findAll(String name, String code) {
@@ -44,6 +44,22 @@ public class CountryService {
         return CountryMapper.toDTO(countryRepository.save(entity));
     }
 
+    public CountryDTO upsert(CountryDTO dto) {
+        Optional<Country> existingOpt = countryRepository.findByName(dto.getName());
+
+        Country country = existingOpt.orElseGet(Country::new);
+
+        country.setName(dto.getName());
+        country.setCode(dto.getCode());
+        country.setRegion(dto.getRegion());
+        country.setSubregion(dto.getSubregion());
+        country.setCapital(dto.getCapital());
+        country.setPopulation(dto.getPopulation());
+
+        Country saved = countryRepository.save(country);
+        return CountryMapper.toDTO(saved);
+    }
+    
     @Transactional
     public CountryDTO update(Long id, CountryDTO dto) {
         Country country = countryRepository.findById(id)
